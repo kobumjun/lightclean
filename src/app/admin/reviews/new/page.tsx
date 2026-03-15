@@ -36,14 +36,21 @@ export default function AdminNewReviewPage() {
     try {
       let imageUrls: string[] = [];
       if (images.length > 0) {
+        console.log("[Review save] uploadReviewImages start, files=", images.length);
         const formData = new FormData();
         images.forEach((file) => formData.append("images", file));
         const result = await uploadReviewImages(formData);
-        if (result.error) throw new Error(result.error);
+        if (result.error) {
+          console.error("[Review save] uploadReviewImages error:", result.error);
+          setError(result.error);
+          return;
+        }
         imageUrls = result.urls;
+        console.log("[Review save] uploadReviewImages done, urls=", imageUrls.length);
       }
       const thumbnail = imageUrls[0] || null;
-      const { id, error: createError } = await createReview({
+      console.log("[Review save] createReview start");
+      const createResult = await createReview({
         title: title.trim(),
         summary: summary.trim(),
         content: content.trim(),
@@ -53,11 +60,18 @@ export default function AdminNewReviewPage() {
         image_urls: imageUrls,
         is_published: isPublished,
       });
-      if (createError) throw new Error(createError);
+      if (createResult.error) {
+        console.error("[Review save] createReview error:", createResult.error);
+        setError(createResult.error);
+        return;
+      }
+      console.log("[Review save] success id=", createResult.id);
       router.push("/admin/reviews");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "저장 실패");
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[Review save] catch:", msg);
+      setError(msg);
     } finally {
       setSubmitting(false);
     }
@@ -148,7 +162,7 @@ export default function AdminNewReviewPage() {
           />
           <label htmlFor="published" className="text-sm text-[var(--navy)]">공개</label>
         </div>
-        {error && <p className="text-sm text-[var(--cta)]">{error}</p>}
+        {error && <p className="text-sm font-medium text-red-600" role="alert">{error}</p>}
         <div className="flex gap-3">
           <button
             type="submit"

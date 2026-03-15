@@ -13,10 +13,15 @@ export async function uploadReviewImages(
   formData: FormData
 ): Promise<{ urls: string[]; error?: string }> {
   try {
+    console.log("[uploadReviewImages] start");
     const files = formData.getAll("images") as File[];
-    if (!files?.length) return { urls: [] };
+    if (!files?.length) {
+      console.log("[uploadReviewImages] no files, return empty urls");
+      return { urls: [] };
+    }
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      return { urls: [], error: "Supabase not configured" };
+      console.error("[uploadReviewImages] Supabase env missing");
+      return { urls: [], error: "Supabase not configured (env missing)" };
     }
 
     const supabase = createClient();
@@ -31,15 +36,20 @@ export async function uploadReviewImages(
       const { data, error } = await supabase.storage
         .from(BUCKET)
         .upload(name, buf, { contentType: file.type || "image/jpeg", upsert: false });
-      if (error) return { urls: [], error: error.message };
+      if (error) {
+        console.error("[uploadReviewImages] storage error:", error.message);
+        return { urls: [], error: `Storage: ${error.message}` };
+      }
       if (data?.path) {
         const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(data.path);
         urls.push(urlData.publicUrl);
       }
     }
+    console.log("[uploadReviewImages] success urls count=", urls.length);
     return { urls };
   } catch (err) {
-    const message = err instanceof Error ? err.message : "이미지 업로드 중 오류가 발생했습니다.";
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[uploadReviewImages] catch:", message);
     return { urls: [], error: message };
   }
 }

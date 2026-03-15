@@ -68,30 +68,39 @@ export async function createReview(
   input: Omit<ReviewInsert, "slug"> & { slug?: string }
 ): Promise<{ id?: string; error?: string }> {
   try {
+    console.log("[createReview] start");
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      return { error: "Supabase not configured" };
+      console.error("[createReview] Supabase env missing");
+      return { error: "Supabase not configured (env missing)" };
     }
     const supabase = createClient();
     const slug = input.slug?.trim() || slugify(input.title);
+    const payload = {
+      title: input.title,
+      slug,
+      summary: input.summary ?? "",
+      content: input.content ?? "",
+      service_type: input.service_type ?? "",
+      location_text: input.location_text ?? "",
+      thumbnail_url: input.thumbnail_url ?? null,
+      image_urls: Array.isArray(input.image_urls) ? input.image_urls : [],
+      is_published: input.is_published ?? true,
+    };
+    console.log("[createReview] insert payload keys=", Object.keys(payload));
     const { data, error } = await supabase
       .from("reviews")
-      .insert({
-        title: input.title,
-        slug,
-        summary: input.summary ?? "",
-        content: input.content ?? "",
-        service_type: input.service_type ?? "",
-        location_text: input.location_text ?? "",
-        thumbnail_url: input.thumbnail_url ?? null,
-        image_urls: Array.isArray(input.image_urls) ? input.image_urls : [],
-        is_published: input.is_published ?? true,
-      })
+      .insert(payload)
       .select("id")
       .single();
-    if (error) return { error: error.message };
+    if (error) {
+      console.error("[createReview] insert error:", error.message, "code=", error.code);
+      return { error: `DB: ${error.message}` };
+    }
+    console.log("[createReview] success id=", data?.id);
     return { id: data?.id ?? undefined };
   } catch (err) {
-    const message = err instanceof Error ? err.message : "후기 저장 중 오류가 발생했습니다.";
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[createReview] catch:", message);
     return { error: message };
   }
 }

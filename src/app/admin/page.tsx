@@ -1,21 +1,26 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { setAdminAuthenticated } from "@/components/AdminGuard";
 import { verifyAdminPassword } from "@/app/actions/admin-auth";
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const passwordRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const passwordValue = (passwordRef.current?.value ?? "") as string;
+    if (typeof window !== "undefined") {
+      console.log("[Admin] submit: password length=", passwordValue.length, "firstChar=", passwordValue ? passwordValue[0] : "(empty)");
+    }
     setError("");
-    const form = e.currentTarget;
-    const formData = new FormData(form);
-    const passwordValue = (formData.get("password") ?? "") as string;
     const { ok } = await verifyAdminPassword(passwordValue);
+    if (typeof window !== "undefined") {
+      console.log("[Admin] verifyAdminPassword result ok=", ok);
+    }
     if (ok) {
       setAdminAuthenticated(true);
       router.replace("/admin/reviews");
@@ -35,6 +40,7 @@ export default function AdminLoginPage() {
               비밀번호
             </label>
             <input
+              ref={passwordRef}
               id="admin-pw"
               name="password"
               type="password"

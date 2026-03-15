@@ -43,6 +43,21 @@ CREATE POLICY "Public can read published reviews"
   ON public.reviews FOR SELECT
   USING (is_published = true);
 
+-- MVP: anon으로 후기 INSERT 허용 (관리자 페이지에서 사용, 추후 인증으로 제한 권장)
+CREATE POLICY "Allow insert reviews"
+  ON public.reviews FOR INSERT
+  WITH CHECK (true);
+
+-- MVP: anon으로 후기 UPDATE/DELETE 허용 (관리자 페이지에서 사용)
+CREATE POLICY "Allow update reviews"
+  ON public.reviews FOR UPDATE
+  USING (true)
+  WITH CHECK (true);
+
+CREATE POLICY "Allow delete reviews"
+  ON public.reviews FOR DELETE
+  USING (true);
+
 -- consultations는 서버/관리자만 조회 가능하도록 할 경우 추가 정책 필요.
 -- MVP에서는 anon key로 insert 허용해 상담 신청 받고, 조회는 dashboard에서 service role 사용 권장.
 CREATE POLICY "Anyone can insert consultation"
