@@ -29,9 +29,8 @@ export function PopupNotice() {
       ? sessionStorage.getItem(STORAGE_KEY)
       : null;
 
-    const shouldShow = adPopup.alwaysShowAdPopup
-      ? true
-      : referralInfo != null && shouldShowAdPopupByReferral(referralInfo);
+    const shouldShow =
+      referralInfo != null && shouldShowAdPopupByReferral(referralInfo);
 
     if (shouldShow && !alreadyClosed) {
       setOpen(true);

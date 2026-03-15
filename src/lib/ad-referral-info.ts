@@ -49,7 +49,8 @@ export function getAdReferralInfo(): AdReferralInfo | null {
   const utmTerm = getParam(params, "utm_term");
   const utmContent = getParam(params, "utm_content");
 
-  const hasUtm = !!(utmSource || utmMedium || utmCampaign || utmTerm || utmContent);
+  /** utm_source, utm_medium, utm_campaign, utm_term 중 하나라도 있으면 true (utm_content 제외) */
+  const hasUtm = !!(utmSource || utmMedium || utmCampaign || utmTerm);
   const rawReferrer = document.referrer || "";
   const hasReferrer = rawReferrer.length > 0;
 
