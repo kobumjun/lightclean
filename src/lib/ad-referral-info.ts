@@ -22,8 +22,10 @@ export interface AdReferralInfo {
   accessTime: string;
   /** referrer 존재 여부 */
   hasReferrer: boolean;
-  /** utm 파라미터 하나라도 있는지 */
+  /** utm 파라미터 하나라도 있는지 (utm_source/medium/campaign/term) */
   hasUtm: boolean;
+  /** referrer가 현재 사이트와 다른 도메인인지 (외부 유입) */
+  isExternalReferrer: boolean;
 }
 
 const EMPTY_LABEL = "없음";
@@ -54,6 +56,16 @@ export function getAdReferralInfo(): AdReferralInfo | null {
   const rawReferrer = document.referrer || "";
   const hasReferrer = rawReferrer.length > 0;
 
+  let isExternalReferrer = false;
+  if (hasReferrer) {
+    try {
+      const referrerHost = new URL(rawReferrer).host;
+      isExternalReferrer = referrerHost !== window.location.host;
+    } catch {
+      isExternalReferrer = false;
+    }
+  }
+
   const referrerDisplay = hasReferrer ? rawReferrer : DIRECT_LABEL;
 
   const now = new Date();
@@ -78,14 +90,17 @@ export function getAdReferralInfo(): AdReferralInfo | null {
     accessTime,
     hasReferrer,
     hasUtm,
+    isExternalReferrer,
   };
 }
 
 /**
- * 팝업을 표시할지 여부 (alwaysShowAdPopup이 false일 때 사용)
- * referrer가 있거나 utm_* 중 하나라도 있으면 true
+ * 팝업 표시 여부:
+ * - URL에 utm_source, utm_medium, utm_campaign, utm_term 중 하나라도 있을 때
+ * - 또는 document.referrer가 존재하고, referrer 도메인이 현재 사이트와 다를 때(외부 유입)
+ * 직접 접속(referrer 없음)이면 표시하지 않음.
  */
-export function shouldShowAdPopupByReferral(info: AdReferralInfo | null): boolean {
+export function shouldShowAdPopup(info: AdReferralInfo | null): boolean {
   if (!info) return false;
-  return info.hasReferrer || info.hasUtm;
+  return info.hasUtm || (info.hasReferrer && info.isExternalReferrer);
 }

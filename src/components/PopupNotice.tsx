@@ -5,7 +5,7 @@ import Link from "next/link";
 import { siteConfig } from "@/lib/site-config";
 import {
   getAdReferralInfo,
-  shouldShowAdPopupByReferral,
+  shouldShowAdPopup,
   type AdReferralInfo,
 } from "@/lib/ad-referral-info";
 
@@ -30,7 +30,8 @@ export function PopupNotice() {
       : null;
 
     const shouldShow =
-      referralInfo != null && shouldShowAdPopupByReferral(referralInfo);
+      adPopup.alwaysShowAdPopup ||
+      (referralInfo != null && shouldShowAdPopup(referralInfo));
 
     if (shouldShow && !alreadyClosed) {
       setOpen(true);

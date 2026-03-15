@@ -59,7 +59,10 @@ export const siteConfig = {
   adPopup: {
     /** 팝업 기능 사용 여부 */
     enableAdPopup: true,
-    /** (현재 미사용) 팝업은 referrer 또는 utm_source/medium/campaign/term 존재 시에만 표시됨 */
+    /**
+     * 개발/테스트용. true면 utm 없이도 팝업 강제 표시.
+     * false(기본값): URL에 utm_source/utm_medium/utm_campaign/utm_term 중 하나라도 있을 때만 표시.
+     */
     alwaysShowAdPopup: false,
     /** true: 세션 동안 한 번만 표시 후 sessionStorage로 숨김, false: 조건 맞을 때마다 표시 */
     adPopupShowOnce: true,
