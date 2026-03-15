@@ -65,7 +65,6 @@ export default function AdminNewReviewPage() {
       router.refresh();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error("[Review save] catch:", msg);
       setError(msg);
     } finally {
       setSubmitting(false);

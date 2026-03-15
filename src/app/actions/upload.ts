@@ -2,75 +2,58 @@
 
 import { createClient } from "@/lib/supabase/server";
 
-const BUCKET = "review-images";
-
-const ALLOWED_EXT = new Set(["jpg", "jpeg", "png", "gif", "webp", "heic"]);
-
-function safeExtension(originalName: string, mimeType: string): string {
-  const fromName = originalName?.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "";
-  const ext = ALLOWED_EXT.has(fromName) ? fromName : "jpg";
-  if (ext !== fromName && mimeType) {
-    if (mimeType.includes("png")) return "png";
-    if (mimeType.includes("gif")) return "gif";
-    if (mimeType.includes("webp")) return "webp";
-  }
-  return ext || "jpg";
-}
+const BUCKET_NAME = "REVIEW-IMAGES";
 
 /**
  * 후기 이미지 여러 장 업로드.
- * 파일명은 한글/공백/특수문자 제거 후 review-{timestamp}-{index}.jpg 형태로 저장.
+ * Supabase Dashboard의 bucket 이름(REVIEW-IMAGES)과 대소문자 일치.
  */
 export async function uploadReviewImages(
   formData: FormData
 ): Promise<{ urls: string[]; error?: string }> {
+  console.log("upload start");
   try {
     const files = formData.getAll("images") as File[];
-    console.log("[uploadReviewImages] start, fileCount=", files?.length ?? 0);
-    if (!files?.length) {
-      return { urls: [] };
-    }
-    for (let i = 0; i < files.length; i++) {
-      const f = files[i];
-      if (f instanceof File) {
-        console.log("[uploadReviewImages] file", i, "name=", f.name, "type=", f.type, "size=", f.size);
-      }
-    }
+    if (!files?.length) return { urls: [] };
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       return { urls: [], error: "Supabase not configured (env missing)" };
     }
 
+    console.log("bucket:", BUCKET_NAME);
     const supabase = createClient();
     const urls: string[] = [];
-    const baseTime = Date.now();
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       if (!(file instanceof File) || !file.size) continue;
-      const ext = safeExtension(file.name || "", file.type || "");
-      const path = `review-${baseTime}-${i}.${ext}`;
-      console.log("[uploadReviewImages] upload path=", path);
+
+      const fileExt = file.name?.split(".").pop()?.toLowerCase() || "jpg";
+      const safeExt = /^[a-z0-9]+$/.test(fileExt) ? fileExt : "jpg";
+      const fileName = `review-${Date.now()}-${i}.${safeExt}`;
+      const filePath = fileName;
+
+      console.log("file name:", file.name);
+      console.log("file size:", file.size);
 
       const buf = await file.arrayBuffer();
-      const contentType = file.type && file.type.startsWith("image/") ? file.type : "image/jpeg";
+      const contentType = file.type?.startsWith("image/") ? file.type : "image/jpeg";
       const { data, error } = await supabase.storage
-        .from(BUCKET)
-        .upload(path, buf, { contentType, upsert: false });
+        .from(BUCKET_NAME)
+        .upload(filePath, buf, { contentType, upsert: false });
 
       if (error) {
-        console.error("[uploadReviewImages] storage error fileIndex=", i, "path=", path, "message=", error.message);
-        return { urls: [], error: `Storage: ${error.message}` };
+        console.error("storage error:", error);
+        return { urls: [], error: error.message };
       }
       if (data?.path) {
-        const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(data.path);
+        const { data: urlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(data.path);
         urls.push(urlData.publicUrl);
       }
     }
-    console.log("[uploadReviewImages] success urls count=", urls.length);
     return { urls };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error("[uploadReviewImages] catch:", message);
+    console.error("upload catch:", message);
     return { urls: [], error: message };
   }
 }
