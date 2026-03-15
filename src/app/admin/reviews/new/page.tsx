@@ -39,11 +39,11 @@ export default function AdminNewReviewPage() {
         const formData = new FormData();
         images.forEach((file) => formData.append("images", file));
         const result = await uploadReviewImages(formData);
-        if (result.error) {
-          setError(`[이미지 업로드] ${result.error}`);
+        if (!result.success) {
+          setError(result.error);
           return;
         }
-        imageUrls = Array.isArray(result.urls) ? result.urls : [];
+        imageUrls = result.urls ?? [];
       }
       const thumbnailUrl = imageUrls.length > 0 ? imageUrls[0] : null;
       const createResult = await createReview({
@@ -60,11 +60,15 @@ export default function AdminNewReviewPage() {
         setError(`[DB 저장] ${createResult.error}`);
         return;
       }
+      if (!createResult.id) {
+        setError("[DB 저장] 저장 후 ID를 받지 못했습니다.");
+        return;
+      }
       console.log("[Review save] success id=", createResult.id);
       router.push("/admin/reviews");
       router.refresh();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = err instanceof Error ? err.message : String(err ?? "알 수 없는 오류");
       setError(msg);
     } finally {
       setSubmitting(false);

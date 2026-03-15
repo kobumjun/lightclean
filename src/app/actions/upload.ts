@@ -2,51 +2,60 @@
 
 import { createClient } from "@/lib/supabase/server";
 
-/** Supabase Dashboard Storage bucket 이름과 정확히 일치 (대소문자 포함). 스키마 주석: review-images */
+/** Supabase Dashboard Storage bucket 이름과 정확히 일치 (대소문자 포함) */
 const BUCKET_NAME = "review-images";
-export async function uploadReviewImages(
-  formData: FormData
-): Promise<{ urls: string[]; error?: string }> {
+
+export type UploadResult =
+  | { success: true; urls: string[] }
+  | { success: false; error: string };
+
+export async function uploadReviewImages(formData: FormData): Promise<UploadResult> {
   try {
-    const files = formData.getAll("images") as File[];
-    if (!files?.length) return { urls: [] };
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      return { urls: [], error: "Supabase not configured (env missing)" };
+    const raw = formData.getAll("images");
+    const files = raw.filter((item): item is File => item instanceof File && item.size > 0);
+
+    if (files.length === 0) {
+      return { success: true, urls: [] };
     }
+
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      return { success: false, error: "[이미지 업로드] Supabase not configured (env missing)" };
+    }
+
     const supabase = createClient();
     const urls: string[] = [];
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (!(file instanceof File) || !file.size) continue;
+    for (let index = 0; index < files.length; index++) {
+      const file = files[index];
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+      const safeName = `review-${Date.now()}-${index}.${ext}`;
 
-      const fileExt = file.name?.split(".").pop()?.toLowerCase() || "jpg";
-      const safeExt = /^[a-z0-9]+$/.test(fileExt) ? fileExt : "jpg";
-      const fileName = `review-${Date.now()}-${i}.${safeExt}`;
-      const filePath = fileName;
-
-      console.log("[이미지 업로드] bucket:", BUCKET_NAME, "upload path:", filePath, "file name:", file.name);
+      console.log("[upload] bucket", BUCKET_NAME);
+      console.log("[upload] file", file.name, file.size, file.type);
+      console.log("[upload] path", safeName);
 
       const buf = await file.arrayBuffer();
       const contentType = file.type?.startsWith("image/") ? file.type : "image/jpeg";
+
       const { data, error } = await supabase.storage
         .from(BUCKET_NAME)
-        .upload(filePath, buf, { contentType, upsert: false });
+        .upload(safeName, buf, { contentType, upsert: false });
 
       if (error) {
-        const errMsg = error?.message ?? "Unknown storage error";
-        console.error("[이미지 업로드] error.message:", errMsg);
-        return { urls: [], error: errMsg };
+        console.error("[upload] error", error);
+        return { success: false, error: `[이미지 업로드] ${error.message}` };
       }
+
       if (data?.path) {
         const { data: urlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(data.path);
         urls.push(urlData.publicUrl);
       }
     }
-    return { urls };
+
+    return { success: true, urls };
   } catch (err) {
-    const message = String(err instanceof Error ? err.message : err ?? "Unknown error");
-    console.error("[이미지 업로드] catch:", message);
-    return { urls: [], error: message };
+    const message = err instanceof Error ? err.message : String(err ?? "Unknown error");
+    console.error("[upload] catch", err);
+    return { success: false, error: `[이미지 업로드] ${message}` };
   }
 }

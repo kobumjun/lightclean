@@ -68,8 +68,11 @@ export default function AdminEditReviewPage() {
         const formData = new FormData();
         newImages.forEach((file) => formData.append("images", file));
         const result = await uploadReviewImages(formData);
-        if (result.error) throw new Error(result.error);
-        allUrls = [...existingUrls, ...result.urls];
+        if (!result.success) {
+          setError(result.error);
+          return;
+        }
+        allUrls = [...existingUrls, ...(result.urls ?? [])];
       }
       const thumbnailUrl = allUrls[0] || review.thumbnail_url || null;
       const updateError = await updateReview(review.id, {
@@ -82,11 +85,14 @@ export default function AdminEditReviewPage() {
         image_urls: allUrls,
         is_published: isPublished,
       });
-      if (updateError.error) throw new Error(updateError.error);
+      if (updateError.error) {
+        setError(`[DB 저장] ${updateError.error}`);
+        return;
+      }
       router.push("/admin/reviews");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "저장 실패");
+      setError(err instanceof Error ? err.message : String(err ?? "저장 실패"));
     } finally {
       setSubmitting(false);
     }

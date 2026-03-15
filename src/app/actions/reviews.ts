@@ -21,7 +21,6 @@ export async function getPublishedReviews(limit = 20): Promise<ReviewRow[]> {
 
 export async function getReviewBySlug(slug: string): Promise<ReviewRow | null> {
   const slugStr = typeof slug === "string" ? slug.trim() : "";
-  console.log("[getReviewBySlug] slug param:", JSON.stringify(slugStr));
   if (!slugStr) return null;
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     return null;
@@ -32,7 +31,8 @@ export async function getReviewBySlug(slug: string): Promise<ReviewRow | null> {
     .select("*")
     .eq("slug", slugStr)
     .eq("is_published", true)
-    .single();
+    .limit(1)
+    .maybeSingle();
   if (error) {
     console.error("[getReviewBySlug] error:", error.message);
     return null;
@@ -66,9 +66,8 @@ export async function getReviewByIdForAdmin(id: string): Promise<ReviewRow | nul
 
 function safeSlugFromTitle(title: string): string {
   const t = (title || "").trim();
-  const safe = `${Date.now()}-${t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80)}`;
-  const out = safe.length > 12 ? safe : `${Date.now()}-post`;
-  return out;
+  const safe = `${Date.now()}-${t.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  return safe.length > 12 ? safe : `${Date.now()}-post`;
 }
 
 export async function createReview(
