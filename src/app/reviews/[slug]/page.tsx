@@ -4,12 +4,15 @@ import { getReviewBySlug } from "@/app/actions/reviews";
 import { ReviewGallery } from "@/components/ReviewGallery";
 import { siteConfig } from "@/lib/site-config";
 
+export const revalidate = 0;
+
 interface Props {
   params: Promise<{ slug: string }>;
 }
 
 export async function generateMetadata({ params }: Props) {
   const { slug } = await params;
+  if (!slug?.trim()) return { title: "후기 없음" };
   const review = await getReviewBySlug(slug);
   if (!review) return { title: "후기 없음" };
   return {
@@ -20,6 +23,7 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function ReviewDetailPage({ params }: Props) {
   const { slug } = await params;
+  if (!slug || typeof slug !== "string" || !slug.trim()) notFound();
   const review = await getReviewBySlug(slug);
   if (!review) notFound();
 

@@ -12,10 +12,12 @@ export function ReviewCard({ review }: ReviewCardProps) {
     month: "long",
     day: "numeric",
   });
+  const slug = typeof review.slug === "string" ? review.slug.trim() : "";
+  const href = slug ? `/reviews/${encodeURIComponent(slug)}` : "/reviews";
 
   return (
     <Link
-      href={`/reviews/${review.slug}`}
+      href={href}
       className="group block overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card-bg)] shadow-sm transition-shadow hover:shadow-md"
     >
       <div className="aspect-[16/10] relative overflow-hidden bg-slate-100">

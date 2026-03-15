@@ -36,33 +36,28 @@ export default function AdminNewReviewPage() {
     try {
       let imageUrls: string[] = [];
       if (images.length > 0) {
-        console.log("[Review save] uploadReviewImages start, files=", images.length);
         const formData = new FormData();
         images.forEach((file) => formData.append("images", file));
         const result = await uploadReviewImages(formData);
         if (result.error) {
-          console.error("[Review save] uploadReviewImages error:", result.error);
-          setError(result.error);
+          setError(`[이미지 업로드] ${result.error}`);
           return;
         }
-        imageUrls = result.urls;
-        console.log("[Review save] uploadReviewImages done, urls=", imageUrls.length);
+        imageUrls = Array.isArray(result.urls) ? result.urls : [];
       }
-      const thumbnail = imageUrls[0] || null;
-      console.log("[Review save] createReview start");
+      const thumbnailUrl = imageUrls.length > 0 ? imageUrls[0] : null;
       const createResult = await createReview({
         title: title.trim(),
         summary: summary.trim(),
         content: content.trim(),
         service_type: serviceType,
         location_text: locationText,
-        thumbnail_url: thumbnail,
+        thumbnail_url: thumbnailUrl ?? null,
         image_urls: imageUrls,
         is_published: isPublished,
       });
       if (createResult.error) {
-        console.error("[Review save] createReview error:", createResult.error);
-        setError(createResult.error);
+        setError(`[DB 저장] ${createResult.error}`);
         return;
       }
       console.log("[Review save] success id=", createResult.id);

@@ -20,6 +20,8 @@ export async function getPublishedReviews(limit = 20): Promise<ReviewRow[]> {
 }
 
 export async function getReviewBySlug(slug: string): Promise<ReviewRow | null> {
+  const slugStr = typeof slug === "string" ? slug.trim() : "";
+  if (!slugStr) return null;
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     return null;
   }
@@ -27,7 +29,7 @@ export async function getReviewBySlug(slug: string): Promise<ReviewRow | null> {
   const { data, error } = await supabase
     .from("reviews")
     .select("*")
-    .eq("slug", slug)
+    .eq("slug", slugStr)
     .eq("is_published", true)
     .single();
   if (error || !data) return null;
@@ -58,11 +60,13 @@ export async function getReviewByIdForAdmin(id: string): Promise<ReviewRow | nul
 }
 
 function slugify(text: string): string {
-  return text
-    .trim()
+  const t = String(text ?? "").trim();
+  if (!t) return "post";
+  const s = t
     .replace(/\s+/g, "-")
     .replace(/[^\w\u3131-\u318E\uAC00-\uD7A3-]+/g, "")
-    .toLowerCase() || "post";
+    .toLowerCase();
+  return s.length > 0 ? s : "post";
 }
 
 export async function createReview(
@@ -75,7 +79,8 @@ export async function createReview(
       return { error: "Supabase not configured (env missing)" };
     }
     const supabase = createClient();
-    const slug = input.slug?.trim() || slugify(input.title);
+    const rawSlug = (input.slug?.trim() || slugify(input.title || "")).trim();
+    const slug = rawSlug.length > 0 ? rawSlug : "post";
     const payload = {
       title: input.title,
       slug,
@@ -99,7 +104,8 @@ export async function createReview(
     }
     revalidatePath("/reviews");
     revalidatePath("/");
-    console.log("[createReview] success id=", data?.id);
+    revalidatePath(`/reviews/${slug}`);
+    console.log("[createReview] success id=", data?.id, "slug=", slug);
     return { id: data?.id ?? undefined };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -117,10 +123,13 @@ export async function updateReview(
       return { error: "Supabase not configured" };
     }
     const supabase = createClient();
+    const { data: existing } = await supabase.from("reviews").select("slug").eq("id", id).single();
     const { error } = await supabase.from("reviews").update(input).eq("id", id);
     if (error) return { error: error.message };
     revalidatePath("/reviews");
     revalidatePath("/");
+    if (existing?.slug) revalidatePath(`/reviews/${existing.slug}`);
+    if (typeof input.slug === "string" && input.slug.trim()) revalidatePath(`/reviews/${input.slug.trim()}`);
     return {};
   } catch (err) {
     const message = err instanceof Error ? err.message : "수정 중 오류가 발생했습니다.";
