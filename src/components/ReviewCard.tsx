@@ -14,6 +14,9 @@ export function ReviewCard({ review }: ReviewCardProps) {
   });
   const slug = typeof review.slug === "string" ? review.slug.trim() : "";
   const href = slug ? `/reviews/${encodeURIComponent(slug)}` : "/reviews";
+  if (typeof window !== "undefined") {
+    console.log("[ReviewCard] slug=", slug, "href=", href);
+  }
 
   return (
     <Link

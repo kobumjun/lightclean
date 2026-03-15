@@ -21,6 +21,7 @@ export async function getPublishedReviews(limit = 20): Promise<ReviewRow[]> {
 
 export async function getReviewBySlug(slug: string): Promise<ReviewRow | null> {
   const slugStr = typeof slug === "string" ? slug.trim() : "";
+  console.log("[getReviewBySlug] slug param:", JSON.stringify(slugStr));
   if (!slugStr) return null;
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     return null;
@@ -32,7 +33,11 @@ export async function getReviewBySlug(slug: string): Promise<ReviewRow | null> {
     .eq("slug", slugStr)
     .eq("is_published", true)
     .single();
-  if (error || !data) return null;
+  if (error) {
+    console.error("[getReviewBySlug] error:", error.message);
+    return null;
+  }
+  if (!data) return null;
   return data as ReviewRow;
 }
 
@@ -59,28 +64,23 @@ export async function getReviewByIdForAdmin(id: string): Promise<ReviewRow | nul
   return data as ReviewRow;
 }
 
-function slugify(text: string): string {
-  const t = String(text ?? "").trim();
-  if (!t) return "post";
-  const s = t
-    .replace(/\s+/g, "-")
-    .replace(/[^\w\u3131-\u318E\uAC00-\uD7A3-]+/g, "")
-    .toLowerCase();
-  return s.length > 0 ? s : "post";
+function safeSlugFromTitle(title: string): string {
+  const t = (title || "").trim();
+  const safe = `${Date.now()}-${t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80)}`;
+  const out = safe.length > 12 ? safe : `${Date.now()}-post`;
+  return out;
 }
 
 export async function createReview(
   input: Omit<ReviewInsert, "slug"> & { slug?: string }
 ): Promise<{ id?: string; error?: string }> {
   try {
-    console.log("[createReview] start");
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      console.error("[createReview] Supabase env missing");
       return { error: "Supabase not configured (env missing)" };
     }
     const supabase = createClient();
-    const rawSlug = (input.slug?.trim() || slugify(input.title || "")).trim();
-    const slug = rawSlug.length > 0 ? rawSlug : "post";
+    const slug = safeSlugFromTitle(input.title || "");
+    console.log("[createReview] slug to save:", slug);
     const payload = {
       title: input.title,
       slug,
@@ -92,7 +92,6 @@ export async function createReview(
       image_urls: Array.isArray(input.image_urls) ? input.image_urls : [],
       is_published: input.is_published ?? true,
     };
-    console.log("[createReview] insert payload keys=", Object.keys(payload));
     const { data, error } = await supabase
       .from("reviews")
       .insert(payload)

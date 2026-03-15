@@ -2,24 +2,17 @@
 
 import { createClient } from "@/lib/supabase/server";
 
-const BUCKET_NAME = "REVIEW-IMAGES";
-
-/**
- * 후기 이미지 여러 장 업로드.
- * Supabase Dashboard의 bucket 이름(REVIEW-IMAGES)과 대소문자 일치.
- */
+/** Supabase Dashboard Storage bucket 이름과 정확히 일치 (대소문자 포함). 스키마 주석: review-images */
+const BUCKET_NAME = "review-images";
 export async function uploadReviewImages(
   formData: FormData
 ): Promise<{ urls: string[]; error?: string }> {
-  console.log("upload start");
   try {
     const files = formData.getAll("images") as File[];
     if (!files?.length) return { urls: [] };
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       return { urls: [], error: "Supabase not configured (env missing)" };
     }
-
-    console.log("bucket:", BUCKET_NAME);
     const supabase = createClient();
     const urls: string[] = [];
 
@@ -32,8 +25,7 @@ export async function uploadReviewImages(
       const fileName = `review-${Date.now()}-${i}.${safeExt}`;
       const filePath = fileName;
 
-      console.log("file name:", file.name);
-      console.log("file size:", file.size);
+      console.log("[이미지 업로드] bucket:", BUCKET_NAME, "upload path:", filePath, "file name:", file.name);
 
       const buf = await file.arrayBuffer();
       const contentType = file.type?.startsWith("image/") ? file.type : "image/jpeg";
@@ -42,8 +34,9 @@ export async function uploadReviewImages(
         .upload(filePath, buf, { contentType, upsert: false });
 
       if (error) {
-        console.error("storage error:", error);
-        return { urls: [], error: error.message };
+        const errMsg = error?.message ?? "Unknown storage error";
+        console.error("[이미지 업로드] error.message:", errMsg);
+        return { urls: [], error: errMsg };
       }
       if (data?.path) {
         const { data: urlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(data.path);
@@ -52,8 +45,8 @@ export async function uploadReviewImages(
     }
     return { urls };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("upload catch:", message);
+    const message = String(err instanceof Error ? err.message : err ?? "Unknown error");
+    console.error("[이미지 업로드] catch:", message);
     return { urls: [], error: message };
   }
 }

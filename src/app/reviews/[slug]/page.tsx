@@ -23,6 +23,7 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function ReviewDetailPage({ params }: Props) {
   const { slug } = await params;
+  console.log("[ReviewDetailPage] params.slug=", slug);
   if (!slug || typeof slug !== "string" || !slug.trim()) notFound();
   const review = await getReviewBySlug(slug);
   if (!review) notFound();
