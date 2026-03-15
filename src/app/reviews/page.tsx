@@ -8,6 +8,8 @@ export const metadata = {
   description: "번개배관케어 고객 작업 후기·작업 사례입니다.",
 };
 
+export const revalidate = 0;
+
 export default async function ReviewsPage() {
   const reviews: ReviewRow[] = await getPublishedReviews(50);
 

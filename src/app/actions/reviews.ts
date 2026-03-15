@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { ReviewRow, ReviewInsert, ReviewUpdate } from "@/types/database";
 
@@ -96,6 +97,8 @@ export async function createReview(
       console.error("[createReview] insert error:", error.message, "code=", error.code);
       return { error: `DB: ${error.message}` };
     }
+    revalidatePath("/reviews");
+    revalidatePath("/");
     console.log("[createReview] success id=", data?.id);
     return { id: data?.id ?? undefined };
   } catch (err) {
@@ -115,7 +118,10 @@ export async function updateReview(
     }
     const supabase = createClient();
     const { error } = await supabase.from("reviews").update(input).eq("id", id);
-    return error ? { error: error.message } : {};
+    if (error) return { error: error.message };
+    revalidatePath("/reviews");
+    revalidatePath("/");
+    return {};
   } catch (err) {
     const message = err instanceof Error ? err.message : "수정 중 오류가 발생했습니다.";
     return { error: message };
@@ -129,7 +135,10 @@ export async function deleteReview(id: string): Promise<{ error?: string }> {
     }
     const supabase = createClient();
     const { error } = await supabase.from("reviews").delete().eq("id", id);
-    return error ? { error: error.message } : {};
+    if (error) return { error: error.message };
+    revalidatePath("/reviews");
+    revalidatePath("/");
+    return {};
   } catch (err) {
     const message = err instanceof Error ? err.message : "삭제 중 오류가 발생했습니다.";
     return { error: message };
@@ -148,7 +157,10 @@ export async function toggleReviewPublished(id: string): Promise<{ error?: strin
       .from("reviews")
       .update({ is_published: !data.is_published })
       .eq("id", id);
-    return error ? { error: error.message } : {};
+    if (error) return { error: error.message };
+    revalidatePath("/reviews");
+    revalidatePath("/");
+    return {};
   } catch (err) {
     const message = err instanceof Error ? err.message : "전환 중 오류가 발생했습니다.";
     return { error: message };
