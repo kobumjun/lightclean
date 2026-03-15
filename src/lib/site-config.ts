@@ -54,6 +54,23 @@ export const siteConfig = {
     type: "tel" as "tel" | "sms" | "kakao" | "none",
     value: "000-0000-0000", // tel이면 번호, sms면 번호 등
   },
+
+  /** 광고 유입 안내 팝업 (B안: 프론트만, DB/로그 저장 없음) */
+  adPopup: {
+    /** 팝업 기능 사용 여부 */
+    enableAdPopup: true,
+    /** true: 항상 표시(관리자/개발 확인용), false: referrer 또는 utm 존재 시에만 표시 */
+    alwaysShowAdPopup: false,
+    /** true: 세션 동안 한 번만 표시 후 sessionStorage로 숨김, false: 조건 맞을 때마다 표시 */
+    adPopupShowOnce: true,
+    /** 팝업 제목 */
+    adPopupTitle: "광고 유입 안내",
+    /** 팝업 설명 문구 (2줄 권장) */
+    adPopupDescription:
+      "광고 또는 외부 링크를 통해 접속하신 경우, 아래 유입 정보를 참고하실 수 있습니다. 상담 문의 시 접속 정보를 함께 전달하시면 확인에 도움이 됩니다.",
+    /** 복사 완료 시 토스트 문구 */
+    adPopupCopyToast: "주소가 클립보드에 복사되었습니다.",
+  },
 } as const;
 
 export type ServiceType = (typeof siteConfig.serviceTypes)[number];
