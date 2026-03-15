@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import { siteConfig } from "@/lib/site-config";
-import { uploadReviewImages } from "@/app/actions/upload";
+import { uploadOneReviewImage } from "@/lib/upload-review-images-client";
 import { createReview } from "@/app/actions/reviews";
 
 export default function AdminNewReviewPage() {
@@ -15,36 +15,50 @@ export default function AdminNewReviewPage() {
   const [serviceType, setServiceType] = useState("");
   const [locationText, setLocationText] = useState("");
   const [isPublished, setIsPublished] = useState(true);
-  const [images, setImages] = useState<File[]>([]);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files?.length) return;
-    setImages(Array.from(files));
+
+    const validFiles = Array.from(files).filter((f): f is File => f instanceof File && f.size > 0);
+    if (validFiles.length === 0) return;
+
+    setError("");
+    setUploading(true);
+    const newUrls: string[] = [];
+    for (const file of validFiles) {
+      const result = await uploadOneReviewImage(file);
+      if ("error" in result) {
+        setError(`[이미지 업로드] ${result.error}`);
+        setUploading(false);
+        return;
+      }
+      newUrls.push(result.url);
+    }
+    setImageUrls((prev) => [...prev, ...newUrls]);
+    setUploading(false);
+    e.target.value = "";
+  };
+
+  const removeImageUrl = (url: string) => {
+    setImageUrls((prev) => prev.filter((u) => u !== url));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
     if (!title.trim()) {
       setError("제목을 입력해 주세요.");
       return;
     }
+
     setSubmitting(true);
     try {
-      let imageUrls: string[] = [];
-      if (images.length > 0) {
-        const formData = new FormData();
-        images.forEach((file) => formData.append("images", file));
-        const result = await uploadReviewImages(formData);
-        if (!result.success) {
-          setError(result.error);
-          return;
-        }
-        imageUrls = result.urls ?? [];
-      }
       const thumbnailUrl = imageUrls.length > 0 ? imageUrls[0] : null;
       const createResult = await createReview({
         title: title.trim(),
@@ -57,19 +71,17 @@ export default function AdminNewReviewPage() {
         is_published: isPublished,
       });
       if (createResult.error) {
-        setError(`[DB 저장] ${createResult.error}`);
+        setError(createResult.error);
         return;
       }
       if (!createResult.id) {
-        setError("[DB 저장] 저장 후 ID를 받지 못했습니다.");
+        setError("저장 후 ID를 받지 못했습니다.");
         return;
       }
-      console.log("[Review save] success id=", createResult.id);
       router.push("/admin/reviews");
       router.refresh();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err ?? "알 수 없는 오류");
-      setError(msg);
+      setError(err instanceof Error ? err.message : String(err ?? "알 수 없는 오류"));
     } finally {
       setSubmitting(false);
     }
@@ -144,10 +156,29 @@ export default function AdminNewReviewPage() {
             accept="image/*"
             multiple
             onChange={handleFileChange}
+            disabled={uploading}
             className="mt-1 w-full rounded-lg border border-[var(--border)] px-4 py-2"
           />
-          {images.length > 0 && (
-            <p className="mt-1 text-sm text-[var(--muted)]">{images.length}개 파일 선택됨. 첫 번째가 썸네일로 사용됩니다.</p>
+          {uploading && <p className="mt-1 text-sm text-[var(--muted)]">업로드 중…</p>}
+          {imageUrls.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {imageUrls.map((url) => (
+                <div key={url} className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt="" className="h-20 w-20 rounded object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeImageUrl(url)}
+                    className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-red-500 text-xs text-white hover:bg-red-600"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {imageUrls.length > 0 && (
+            <p className="mt-1 text-xs text-[var(--muted)]">첫 번째가 썸네일. 삭제하려면 × 를 누르세요.</p>
           )}
         </div>
         <div className="flex items-center gap-2">

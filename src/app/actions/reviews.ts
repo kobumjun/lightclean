@@ -80,6 +80,8 @@ export async function createReview(
     const supabase = createClient();
     const slug = safeSlugFromTitle(input.title || "");
     console.log("[createReview] slug to save:", slug);
+    const thumbnail_url = input.thumbnail_url ?? null;
+    const image_urls = Array.isArray(input.image_urls) ? input.image_urls : [];
     const payload = {
       title: input.title,
       slug,
@@ -87,10 +89,11 @@ export async function createReview(
       content: input.content ?? "",
       service_type: input.service_type ?? "",
       location_text: input.location_text ?? "",
-      thumbnail_url: input.thumbnail_url ?? null,
-      image_urls: Array.isArray(input.image_urls) ? input.image_urls : [],
+      thumbnail_url,
+      image_urls,
       is_published: input.is_published ?? true,
     };
+    console.log("[review insert payload]", { thumbnail_url, image_urls });
     const { data, error } = await supabase
       .from("reviews")
       .insert(payload)
@@ -121,6 +124,10 @@ export async function updateReview(
       return { error: "Supabase not configured" };
     }
     const supabase = createClient();
+    console.log("[review update payload]", {
+      thumbnail_url: input.thumbnail_url,
+      image_urls: input.image_urls,
+    });
     const { data: existing } = await supabase.from("reviews").select("slug").eq("id", id).single();
     const { error } = await supabase.from("reviews").update(input).eq("id", id);
     if (error) return { error: error.message };

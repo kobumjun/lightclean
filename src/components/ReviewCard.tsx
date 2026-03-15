@@ -6,7 +6,7 @@ interface ReviewCardProps {
 }
 
 export function ReviewCard({ review }: ReviewCardProps) {
-  const thumb = review.thumbnail_url || (Array.isArray(review.image_urls) && review.image_urls[0]) || null;
+  const previewImage = review.thumbnail_url ?? review.image_urls?.[0] ?? null;
   const date = new Date(review.created_at).toLocaleDateString("ko-KR", {
     year: "numeric",
     month: "long",
@@ -21,10 +21,10 @@ export function ReviewCard({ review }: ReviewCardProps) {
       className="group block overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card-bg)] shadow-sm transition-shadow hover:shadow-md"
     >
       <div className="aspect-[16/10] relative overflow-hidden bg-slate-100">
-        {thumb ? (
+        {previewImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={thumb}
+            src={previewImage}
             alt=""
             className="size-full object-cover transition-transform group-hover:scale-105"
           />

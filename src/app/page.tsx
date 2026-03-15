@@ -185,10 +185,10 @@ export default async function HomePage() {
                   className="group block overflow-hidden rounded-xl border border-[var(--border)] bg-white shadow-sm hover:shadow-md"
                 >
                   <div className="aspect-video bg-slate-100">
-                    {(r.thumbnail_url || (r.image_urls?.[0])) ? (
+                    {(r.thumbnail_url ?? r.image_urls?.[0]) ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={r.thumbnail_url || r.image_urls?.[0]}
+                        src={r.thumbnail_url ?? r.image_urls?.[0]}
                         alt=""
                         className="h-full w-full object-cover transition-transform group-hover:scale-105"
                       />

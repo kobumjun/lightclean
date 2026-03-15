@@ -4,9 +4,8 @@ import { useRouter, useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { siteConfig } from "@/lib/site-config";
-import { getReviewByIdForAdmin } from "@/app/actions/reviews";
-import { updateReview } from "@/app/actions/reviews";
-import { uploadReviewImages } from "@/app/actions/upload";
+import { getReviewByIdForAdmin, updateReview } from "@/app/actions/reviews";
+import { uploadOneReviewImage } from "@/lib/upload-review-images-client";
 import type { ReviewRow } from "@/types/database";
 
 export default function AdminEditReviewPage() {
@@ -20,8 +19,8 @@ export default function AdminEditReviewPage() {
   const [serviceType, setServiceType] = useState("");
   const [locationText, setLocationText] = useState("");
   const [isPublished, setIsPublished] = useState(true);
-  const [existingUrls, setExistingUrls] = useState<string[]>([]);
-  const [newImages, setNewImages] = useState<File[]>([]);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -37,44 +36,52 @@ export default function AdminEditReviewPage() {
         setServiceType(r.service_type || "");
         setLocationText(r.location_text || "");
         setIsPublished(r.is_published);
-        setExistingUrls(Array.isArray(r.image_urls) ? r.image_urls : []);
+        setImageUrls(Array.isArray(r.image_urls) ? r.image_urls : []);
       }
       setLoading(false);
     });
   }, [id]);
 
-  const handleNewFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleNewFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files?.length) return;
-    setNewImages(Array.from(files));
+    const validFiles = Array.from(files).filter((f): f is File => f instanceof File && f.size > 0);
+    if (validFiles.length === 0) return;
+
+    setError("");
+    setUploading(true);
+    const newUrls: string[] = [];
+    for (const file of validFiles) {
+      const result = await uploadOneReviewImage(file);
+      if ("error" in result) {
+        setError(`[이미지 업로드] ${result.error}`);
+        setUploading(false);
+        return;
+      }
+      newUrls.push(result.url);
+    }
+    setImageUrls((prev) => [...prev, ...newUrls]);
+    setUploading(false);
+    e.target.value = "";
   };
 
-  const removeExistingUrl = (url: string) => {
-    setExistingUrls((prev) => prev.filter((u) => u !== url));
+  const removeImageUrl = (url: string) => {
+    setImageUrls((prev) => prev.filter((u) => u !== url));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!review) return;
     setError("");
+
     if (!title.trim()) {
       setError("제목을 입력해 주세요.");
       return;
     }
+
     setSubmitting(true);
     try {
-      let allUrls = [...existingUrls];
-      if (newImages.length > 0) {
-        const formData = new FormData();
-        newImages.forEach((file) => formData.append("images", file));
-        const result = await uploadReviewImages(formData);
-        if (!result.success) {
-          setError(result.error);
-          return;
-        }
-        allUrls = [...existingUrls, ...(result.urls ?? [])];
-      }
-      const thumbnailUrl = allUrls[0] || review.thumbnail_url || null;
+      const thumbnailUrl = imageUrls[0] || review.thumbnail_url || null;
       const updateError = await updateReview(review.id, {
         title: title.trim(),
         summary: summary.trim(),
@@ -82,11 +89,11 @@ export default function AdminEditReviewPage() {
         service_type: serviceType,
         location_text: locationText,
         thumbnail_url: thumbnailUrl,
-        image_urls: allUrls,
+        image_urls: imageUrls,
         is_published: isPublished,
       });
       if (updateError.error) {
-        setError(`[DB 저장] ${updateError.error}`);
+        setError(updateError.error);
         return;
       }
       router.push("/admin/reviews");
@@ -177,15 +184,15 @@ export default function AdminEditReviewPage() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-[var(--navy)]">기존 이미지</label>
+          <label className="block text-sm font-medium text-[var(--navy)]">이미지</label>
           <div className="mt-2 flex flex-wrap gap-2">
-            {existingUrls.map((url) => (
+            {imageUrls.map((url) => (
               <div key={url} className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={url} alt="" className="h-20 w-20 rounded object-cover" />
                 <button
                   type="button"
-                  onClick={() => removeExistingUrl(url)}
+                  onClick={() => removeImageUrl(url)}
                   className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-red-500 text-xs text-white hover:bg-red-600"
                 >
                   ×
@@ -194,17 +201,15 @@ export default function AdminEditReviewPage() {
             ))}
           </div>
           <p className="mt-1 text-xs text-[var(--muted)]">삭제하려면 × 를 누르세요. 순서는 저장 시 반영됩니다.</p>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-[var(--navy)]">이미지 추가 (여러 장)</label>
           <input
             type="file"
             accept="image/*"
             multiple
             onChange={handleNewFileChange}
-            className="mt-1 w-full rounded-lg border border-[var(--border)] px-4 py-2"
+            disabled={uploading}
+            className="mt-2 w-full rounded-lg border border-[var(--border)] px-4 py-2"
           />
-          {newImages.length > 0 && <p className="mt-1 text-sm text-[var(--muted)]">{newImages.length}개 추가</p>}
+          {uploading && <p className="mt-1 text-sm text-[var(--muted)]">업로드 중…</p>}
         </div>
         <div className="flex items-center gap-2">
           <input
